@@ -355,7 +355,7 @@ literal:
 #ifdef __SYMBIAN32__
 			if(argflag == 1)
 			{
-#if defined EMULATOR || defined __X86GCC__ || defined __GCCE__	/* NeoSymbian: GCCE's va_list here is a pointer */
+#if defined EMULATOR || defined __X86GCC__
 
 				if (flags & SHORTSHORT)
 					**(char **)(ap + arglocation ) = nread;			
