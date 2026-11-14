@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): Bluetooth addresses only with the Bluetooth headers (os.bt).
 * Description:
 *
 */
@@ -25,7 +25,16 @@
 #include <sys/stat.h>
 #include <netinet/in.h>		// for htons
 #include <sys/sockio.h>
+// NeoSymbian: without the Bluetooth stack's headers (os.bt) a Bluetooth address is an ordinary one, which the socket
+// server then refuses (it has no Bluetooth protocol)
+#ifdef __has_include
+#if !__has_include(<bt_sock.h>)
+#define NEO_NO_BLUETOOTH
+#endif
+#endif
+#ifndef NEO_NO_BLUETOOTH
 #include <bt_sock.h>     // Symbian BT constantss needed for cooperation with Symbian sockets
+#endif
 #include <arpa/inet.h>   
 #include <es_sock.h>
 #include <in_sock.h>
@@ -124,6 +133,7 @@ void TUSockAddr::Set (const TAny* aBuf, TUint aLen)
 		SetUserLen(aLen);    	
 		return;
 		}	
+#ifndef NEO_NO_BLUETOOTH
 	else if (sp->sa_family == KBTAddrFamily)
 		{
 		// Make a TBTSockAddr from a sockaddr_bt...
@@ -174,6 +184,7 @@ void TUSockAddr::Set (const TAny* aBuf, TUint aLen)
 
 		return;
 		}
+#endif
 	else
 		{
 		// Not AF_INET or KBTAddrFamily:
@@ -249,6 +260,7 @@ EXPORT_C void TUSockAddr::Get(TAny* addr, unsigned long* len)
 		sp->sa_len = ulen;
 		return;
 		}		
+#ifndef NEO_NO_BLUETOOTH
 	else if (Family()==KBTAddrFamily)
 		{
 		sp->sa_family=KBTAddrFamily;
@@ -264,6 +276,7 @@ EXPORT_C void TUSockAddr::Get(TAny* addr, unsigned long* len)
 			}
 		return;
 		}
+#endif
 	else
 		{
 		// Not AF_INET or KBTAddrFamily:
