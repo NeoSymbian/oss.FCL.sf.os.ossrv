@@ -358,6 +358,9 @@ IMPORT_C int	 link(const char *, const char *);
 #ifndef _LSEEK_DECLARED
 #define	_LSEEK_DECLARED
 IMPORT_C off_t	 lseek(int, off_t, int);
+/* NeoSymbian (browser WB2c): positioned I/O over lseek, not atomic against other users of the fd */
+IMPORT_C ssize_t	 pread(int, void *, size_t, off_t);
+IMPORT_C ssize_t	 pwrite(int, const void *, size_t, off_t);
 
 #if defined(SYMBIAN_OE_LARGE_FILE_SUPPORT) && !defined(SYMBIAN_OE_NO_LFS)
 #define lseek64  lseek

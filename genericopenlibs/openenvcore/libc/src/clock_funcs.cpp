@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): CLOCK_REALTIME nanoseconds fixed; CLOCK_MONOTONIC from the generic timer.
 * Description:  This is a project specific include file for building the 
 *                clock related functions as part of libc library.
 *
@@ -27,6 +27,34 @@
 #include "lposix.h"
 
 #define UNIX_BASE	TTime(MAKE_TINT64(0x00dcddb3,0x0f2f8000))    // 00:00, Jan 1st 1970
+
+// NeoSymbian: CLOCK_MONOTONIC reads the ARM generic timer's 64-bit virtual count (CNTVCT) at CNTFRQ, which the
+// AArch64 kernel lets EL0 read (CNTKCTL_EL1.EL0VCTEN). That kernel is the only SMP one we run; the 2010 Syborg
+// kernel (Cortex-A8, no generic timer) is not SMP and keeps EINVAL.
+#include <e32svr.h>
+#include <u32hal.h>
+
+static TBool HaveGenericTimer()
+{
+	static TInt have = -1;	// benign race: every thread computes the same answer
+	if (have < 0)
+		have = UserSvr::HalFunction(EHalGroupKernel, EKernelHalSmpSupported, 0, 0) == KErrNone;
+	return have;
+}
+
+__attribute__((target("arm"))) static TUint64 CounterValue()
+{
+	TUint32 lo, hi;
+	asm volatile("mrrc p15, 1, %0, %1, c14" : "=r"(lo), "=r"(hi));
+	return ((TUint64)hi << 32) | lo;
+}
+
+__attribute__((target("arm"))) static TUint32 CounterFrequency()
+{
+	TUint32 f;
+	asm volatile("mrc p15, 0, %0, c14, c0, 0" : "=r"(f));
+	return f;
+}
 
 extern "C" {
 
@@ -51,7 +79,17 @@ EXPORT_C int clock_getres(clockid_t clock_id, struct timespec* res)
 			res->tv_nsec = 1000000;
 			retval = 0;
 			break;
-		
+
+		case CLOCK_MONOTONIC:	// NeoSymbian
+			if (HaveGenericTimer())
+			{
+				TUint32 f = CounterFrequency();
+				res->tv_sec = 0;
+				res->tv_nsec = f >= 1000000000u ? 1 : (1000000000u + f - 1) / f;
+				retval = 0;
+				break;
+			}
+			// fall through: no counter
 		default:
 			//For all other clocks that cannot be supported or invalid clockids,
 			//we set errno to not-supported
@@ -87,11 +125,22 @@ EXPORT_C int clock_gettime (clockid_t clock_id, struct timespec *tp)
 			if (!err)
 			{
 				tp->tv_sec = iSeconds.Int();
-				tp->tv_nsec = t.Int64();
+				// NeoSymbian: was t.Int64(), the whole time since year 0 in microseconds
+				tp->tv_nsec = (long)(t.MicroSecondsFrom(UNIX_BASE).Int64() * 1000);
 				retval = 0;
 			}
 			break;
-		
+
+		case CLOCK_MONOTONIC:	// NeoSymbian
+			if (HaveGenericTimer())
+			{
+				TUint64 c = CounterValue(), f = CounterFrequency();
+				tp->tv_sec = (time_t)(c / f);
+				tp->tv_nsec = (long)((c % f) * 1000000000u / f);
+				retval = 0;
+				break;
+			}
+			// fall through: no counter
 		default:
 			//For all other clocks that cannot be supported or invalid clockids,
 			//we set errno to invalid
