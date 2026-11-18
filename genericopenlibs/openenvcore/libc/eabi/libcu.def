@@ -596,3 +596,6 @@ EXPORTS
 	get_fmode @ 595 NONAME
 	sigenable @ 596 NONAME
   	unsetdefaultif @ 597 NONAME
+	poll @ 598 NONAME
+	pread @ 599 NONAME
+	pwrite @ 600 NONAME
