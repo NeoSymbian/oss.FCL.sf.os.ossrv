@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): sockets take F_SETFD/F_GETFD (FD_CLOEXEC), as pipes do.
 * Description:
 *
 */
@@ -59,6 +59,14 @@ TInt CSockDescBase::Fcntl(TUint anArg, TUint aCmd)
 			retVal = iFcntlFlag;
 			break;
 			}
+		// NeoSymbian: FD_CLOEXEC is kept, as upipedesc.cpp does (nothing here execs); ported code (mio, curl) sets it
+		// on every socket and failed with ENOSYS
+		case F_SETFD:
+			iFdAttrib = (anArg & FD_CLOEXEC) ? (iFdAttrib | KCloseonExec) : (iFdAttrib & ~KCloseonExec);
+			break;
+		case F_GETFD:
+			retVal = (iFdAttrib & KCloseonExec) ? FD_CLOEXEC : 0;
+			break;
 		default:
 			retVal = KErrNotSupported;
 		}
