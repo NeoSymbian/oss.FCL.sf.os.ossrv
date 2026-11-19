@@ -10,7 +10,7 @@
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-* The NeoSymbian Authors (2026): Bluetooth addresses only with the Bluetooth headers (os.bt); IPv4 names returned at sizeof(sockaddr_in).
+* The NeoSymbian Authors (2026): Bluetooth addresses only with the Bluetooth headers (os.bt); IPv4 names returned at sizeof(sockaddr_in); FIONBIO.
 * Description:
 *
 */
@@ -924,6 +924,15 @@ void CSocketDesc::Ioctl(int aCmd, void* aParam, TRequestStatus& aStatus)
 
 	switch ((unsigned)aCmd)
 		{
+		case FIONBIO:
+			{
+			// NeoSymbian: non-blocking on/off as fcntl(F_SETFL, O_NONBLOCK) does (Rust's std and curl use this ioctl)
+			TUint flags = *param ? (iFcntlFlag | O_NONBLOCK) : (iFcntlFlag & ~O_NONBLOCK);
+			ret = CSockDescBase::Fcntl(flags, F_SETFL);
+			if (ret > 0)
+				ret = KErrNone;		// F_SETFL answers the new flags
+			}
+			break;
 		case FIONREAD:
 		case E32IONREAD:
 		    {
