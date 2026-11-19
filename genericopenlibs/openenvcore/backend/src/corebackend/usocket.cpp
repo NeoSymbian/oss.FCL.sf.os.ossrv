@@ -10,7 +10,7 @@
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-* The NeoSymbian Authors (2026): Bluetooth addresses only with the Bluetooth headers (os.bt).
+* The NeoSymbian Authors (2026): Bluetooth addresses only with the Bluetooth headers (os.bt); IPv4 names returned at sizeof(sockaddr_in).
 * Description:
 *
 */
@@ -244,7 +244,11 @@ EXPORT_C void TUSockAddr::Get(TAny* addr, unsigned long* len)
 		else
 			fromaddr = (from[0]<<24)+(from[1]<<16)+(from[2]<<8)+ from[3];
 		*(TUint32*)sp->sa_data=fromaddr;
-		*len=8;
+		// NeoSymbian: the length of a struct sockaddr_in (POSIX: the address's size), its padding zeroed; it was 8,
+		// shorter than the struct, which callers that check the length (Rust's std) refuse
+		if (*len >= sizeof(struct sockaddr_in))
+			memset((TUint8*)addr + 8, 0, sizeof(struct sockaddr_in) - 8);
+		*len=sizeof(struct sockaddr_in);
 		return;
 		}
 	else if (Family()==AF_INET6)

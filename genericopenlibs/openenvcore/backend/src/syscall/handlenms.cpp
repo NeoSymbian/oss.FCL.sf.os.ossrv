@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): getaddrinfo passes its address buffer's real size.
 * Description:
 *
 */
@@ -581,7 +581,7 @@ static int CreateAddrInfoNode(TNameRecord& aRec, const struct addrinfo* aHints, 
 		return EAI_MEMORY;
 		}
 		
-	addrLen = sizeof((*aNode)->ai_addr);
+	addrLen = sizeof(struct sockaddr);	// NeoSymbian: the buffer allocated above (it was the pointer's size)
 	STATIC_CAST(TUSockAddr*, &aRec.iAddr)->Get((*aNode)->ai_addr, &addrLen);
 	(*aNode)->ai_addrlen = addrLen;
 	
