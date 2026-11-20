@@ -238,6 +238,12 @@ void CRandomDesc::Read(TDes8& aBuf, TRequestStatus& aStatus)
 	Complete(aStatus, err);
 	}
 
+// read() returns what this returns: the bytes filled (the base's returns the status, 0, which reads as end of file)
+TInt CRandomDesc::ReadCompletion(TDes8& aBuf, TInt aStatus)
+	{
+	return aStatus < 0 ? aStatus : aBuf.Length();
+	}
+
 TInt CFileDescBase::ReadCompletion (TDes8& /*aBuf*/, TInt aStatus)
 	{
 	return aStatus;

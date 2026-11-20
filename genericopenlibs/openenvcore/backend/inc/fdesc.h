@@ -302,6 +302,7 @@ NeoSymbian: /dev/urandom and /dev/random, a character device whose reads fill fr
 	{
 public:
 	void Read(TDes8& aDesc, TRequestStatus& aStatus);
+	TInt ReadCompletion(TDes8& aDesc, TInt aStatus);
 	};
 
 

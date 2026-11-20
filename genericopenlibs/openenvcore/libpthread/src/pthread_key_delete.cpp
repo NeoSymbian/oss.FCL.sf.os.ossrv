@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): a thread with no node for the key is skipped (no panic).
 // Description:
 // Name     : pthread_key_delete.cpp
 // Part of  : PThread library
@@ -62,10 +62,10 @@ static int _deleteKeyInAllThreads(_global_data_t *glbPtr, int keyNumber)
         
         if (tlsPtr == NULL) // Means not found
         {
-            // This should never happen; key to be deleted not exists
+            // NeoSymbian: this thread never got a node for the key (it started while the key was created, see
+            // pthread_getspecific): nothing to delete here; it used to panic "Invalid Key" 0
             temp->lockNode.Signal();
-            User::Panic(_L("Invalid Key"),0);
-            return -1;            
+            continue;
         }
 
         // Unlock TCB node
