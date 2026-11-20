@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): locale loads under one process-wide lock (SMP)
 * Description:  Contains the source for all locale related functionalities
  *     
  *
@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <f32file.h>
 #include "localeinfo.h"
+#include <pthread.h>
 #include "sysif.h"
 #include <e32std_private.h>
 #include <e32ldr_private.h>
@@ -93,6 +94,18 @@ TText8* monetaryLocale = NULL;
 TText8* timeLocale =  NULL;
 
 static TBuf<LANG_VARIANT_DLL_NAME> DllName;
+
+static pthread_mutex_t LocaleLock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+
+TLocaleLock::TLocaleLock()
+	{
+	pthread_mutex_lock(&LocaleLock);
+	}
+
+TLocaleLock::~TLocaleLock()
+	{
+	pthread_mutex_unlock(&LocaleLock);
+	}
 
 #ifdef SYMBIAN_DISTINCT_LOCALE_MODEL
 static TBuf<NEW_LANG_VARIANT_DLL_NAME> ColDllName;
@@ -215,6 +228,7 @@ TInt CLocale::ConstructL()
 
 CLocale* CLocale::GetInstance()
 	{
+	TLocaleLock lock;	// NeoSymbian: one creation of the singleton and its buffers (SMP)
 	// Switch to the backend heap
 	RHeap* oldheap = User::SwitchHeap(Backend()->Heap());
 	

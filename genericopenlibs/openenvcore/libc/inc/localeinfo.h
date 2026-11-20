@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): locale loads under one process-wide lock (SMP)
 * Description:  Contains the class declartion for locale related functions
  *     
  *
@@ -34,6 +34,15 @@
 
 // CONSTANTS
 const TInt KNumLocaleExports = 22;
+
+// NeoSymbian (US1, SMP): CLocale has one set of buffers and moves global cursors through them while it loads, so
+// every load (and the singleton's creation) runs under one process-wide lock. Recursive: loaders reach GetInstance.
+class TLocaleLock
+	{
+public:
+	TLocaleLock();
+	~TLocaleLock();
+	};
 
 class CLocale:public CBase
 {

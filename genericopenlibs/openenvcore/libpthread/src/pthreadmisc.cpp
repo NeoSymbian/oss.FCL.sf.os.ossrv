@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): a copied TLS key list ends in NULL
 // Description:
 // Name     : pthreadmisc.cpp
 // Part of  : PThread library
@@ -135,6 +135,7 @@ int _copy_already_defined_keys(_pthread_node_t* prev_node, _pthread_node_t* new_
 		else{
 			prevTlsPtr->next = newTlsPtr;
 		}
+        newTlsPtr->next = NULL;	// NeoSymbian: the last node's next was left as heap garbage
         newTlsPtr->tls = NULL;
         newTlsPtr->keyNumber = tlsPtr->keyNumber;
 		prevTlsPtr = newTlsPtr;

@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): locale loads under one process-wide lock (SMP)
 * Description:  Contains the source for setting the locale
  *     
  *
@@ -98,6 +98,7 @@ extern "C" {
 
 EXPORT_C char * setlocale(int category, const char* locale)
 {
+	TLocaleLock lock;	// NeoSymbian: setlocale loads into CLocale's shared buffers (SMP)
 	CLocale* loc = CLocale::GetInstance();
 	
 	//Query the current locale
