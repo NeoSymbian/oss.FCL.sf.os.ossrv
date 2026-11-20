@@ -10,7 +10,7 @@
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-* The NeoSymbian Authors (2026): /dev/urandom and /dev/random (CRandomDesc) over the kernel's secure RNG.
+* The NeoSymbian Authors (2026): /dev/urandom and /dev/random (CRandomDesc) over the kernel's secure RNG; F_GETFD/F_SETFD.
 * Description:
 *
 */
@@ -456,6 +456,12 @@ TInt CFileDescBase::Fcntl(TUint /*anArg*/, TUint aCmd)
 	if(aCmd == F_GETFL)
 		{
 		return KErrNotFound;
+		}
+	// NeoSymbian: there is no exec, so close-on-exec is moot: F_GETFD says 0 and F_SETFD is accepted (aws-lc
+	// gives /dev/urandom up when they fail)
+	if(aCmd == F_GETFD || aCmd == F_SETFD)
+		{
+		return 0;
 		}
 	return KErrNotSupported;
 	}
