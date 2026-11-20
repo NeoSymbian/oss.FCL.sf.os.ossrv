@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): a key never set in this thread reads NULL (no panic).
 // Description:
 // Name     : pthread_getspecific.cpp
 // Part of  : PThread library
@@ -81,10 +81,10 @@ EXPORT_C void* pthread_getspecific(pthread_key_t key)
 
     if (tlsPtr == NULL) // First node
     {
-        // This should never happen; key tobe set
+        // NeoSymbian: no node for this key in this thread (the key was created while the thread was starting, after
+        // _createKeyList): never set here, so NULL, as POSIX says; it used to panic "Invalid Key" 0
         selfNodePtr->lockNode.Signal();
         glbPtr->lockThreadTable.Signal();  // release thread table lock
-        User::Panic(_L("Invalid Key"),0);
         return NULL;
     }
     
