@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): CRandomDesc, /dev/urandom and /dev/random over the kernel's secure RNG.
 // Description:
 // Abstraction representing a UNIX file descriptor
 // CFileDescBase maintains the simple semantics of
@@ -291,6 +291,18 @@ public:
 
 inline CFileDescBase* CFileDescBase::Dup () 
 	{ iDupCount += 1; return this; }
+
+
+NONSHARABLE_CLASS(CRandomDesc) : public CFileDescBase
+/*
+NeoSymbian: /dev/urandom and /dev/random, a character device whose reads fill from the kernel's secure RNG
+(Math::RandomL); ported code (aws-lc, arc4random) opens it. Writes are accepted and ignored, as on Linux.
+@internalComponent
+*/
+	{
+public:
+	void Read(TDes8& aDesc, TRequestStatus& aStatus);
+	};
 
 
 NONSHARABLE_CLASS(CTtyDesc) : public CFileDescBase

@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): /dev/urandom and /dev/random (CRandomDesc) over the kernel's secure RNG.
 * Description:
 *
 */
@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <fcntl.h>		// for struct stat
 #include <wchar.h>
+#include <e32math.h>		// NeoSymbian: Math::RandomL (CRandomDesc)
 #include <sys/errno.h>		// for ENOTSOCK
 #include <sys/ioctl.h>
 #include <c32comm.h>
@@ -68,6 +69,10 @@ CFileDescBase* CFileDescBase::Open(const wchar_t* name, int mode, int perms, TIn
 	else if(WcsCmp(name, L"NUL:") == 0)
 		{
 		ret = new CFileDescBase;
+		}
+	else if(WcsCmp(name, L"/dev/urandom") == 0 || WcsCmp(name, L"/dev/random") == 0)
+		{
+		ret = new CRandomDesc;	// NeoSymbian
 		}
 	else if((WcsCmp(name, L"TMP:") == 0) || (mode & O_TMPFILE))
 		{	
@@ -222,6 +227,16 @@ void CFileDescBase::Read (TDes8& aBuf, TRequestStatus& aStatus)
 	}
 
 void CFileDescBase::ReadCancel() {}
+
+// NeoSymbian: /dev/urandom and /dev/random, filled from the kernel's secure RNG
+void CRandomDesc::Read(TDes8& aBuf, TRequestStatus& aStatus)
+	{
+	aBuf.SetMax();
+	TRAPD(err, Math::RandomL(aBuf));
+	if (err != KErrNone)
+		aBuf.Zero();
+	Complete(aStatus, err);
+	}
 
 TInt CFileDescBase::ReadCompletion (TDes8& /*aBuf*/, TInt aStatus)
 	{
