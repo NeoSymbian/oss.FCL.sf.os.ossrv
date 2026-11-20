@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): a key with no node in this thread gets one (it used to fail EINVAL).
 // Description:
 // Name     : pthread_setspecific.cpp
 // Part of  : PThread library
@@ -23,6 +23,8 @@
 #include <errno.h>
 #include "threadglobals.h"
 #include "pthreadmisc.h"
+
+extern int _insertKeyNodeInList(_pkey_node_t *newTlsPtr,_pthread_node_t *temp);
 
 EXPORT_C int pthread_setspecific(pthread_key_t key, const void *value)
 {
@@ -76,10 +78,17 @@ EXPORT_C int pthread_setspecific(pthread_key_t key, const void *value)
 
     if (tlsPtr == NULL) // First node
     {
-        // This should never happen; key tobe set
-        selfNodePtr->lockNode.Signal();
-        glbPtr->lockThreadTable.Signal();  // release thread table lock
-        return EINVAL;
+        // NeoSymbian: no node for this key in this thread (the key was created while the thread was starting, after
+        // _createKeyList): add it now
+        tlsPtr = new _pkey_node_t;
+        if (tlsPtr == NULL || (tlsPtr->next = NULL, tlsPtr->tls = (void*)value, tlsPtr->keyNumber = key,
+                _insertKeyNodeInList(tlsPtr, selfNodePtr) == -1))
+        {
+            delete tlsPtr;
+            selfNodePtr->lockNode.Signal();
+            glbPtr->lockThreadTable.Signal();  // release thread table lock
+            return ENOMEM;
+        }
     }
 
     // Unlock TCB node
