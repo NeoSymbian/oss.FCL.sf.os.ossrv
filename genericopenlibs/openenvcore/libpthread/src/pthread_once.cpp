@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): acquire/release on the done flag (SMP)
 // Description:
 // Name        : pthread_once.cpp
 // Part of     : pthread
@@ -42,7 +42,7 @@ EXPORT_C int pthread_once(pthread_once_t * once_control,
         return EINVAL;
     }
 
-    if (*once_control == _EDone) 
+    if ((int)__e32_atomic_load_acq32(once_control) == _EDone)	// NeoSymbian: acquire, pairs with the release below (SMP)
     {
         return 0;   
     }
@@ -63,7 +63,7 @@ EXPORT_C int pthread_once(pthread_once_t * once_control,
   
     *once_control = _EDoing;
     init_routine();
-    *once_control = _EDone;
+    __e32_atomic_store_rel32(once_control, _EDone);	// NeoSymbian: publishes what init_routine wrote (SMP)
 #ifndef NOUSE_INTERNALS    
     _pthread_atomicMutexUnlock(tlsPtr);
 #endif   

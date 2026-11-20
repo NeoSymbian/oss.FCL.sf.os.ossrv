@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): locale loads under one process-wide lock (SMP)
 * Description:  Contains the source for LC_TIME category related functions
  *     
  *
@@ -125,6 +125,7 @@ __get_current_time_locale(void)
 #ifdef SYMBIAN_OE_ENHANCED_LOCALE_SUPPORT
 	else
 	{
+		TLocaleLock lock;	// NeoSymbian: loads share CLocale's buffers (SMP)
 		CLocale *l=CLocale::GetInstance();
 		ret=l->SyncLocale(ELocaleLanguageSettings);
     	if(ret==-1)
@@ -141,6 +142,7 @@ int
 __time_load_locale(const char* localeName)
 {
 
+	TLocaleLock lock;	// NeoSymbian: loads share CLocale's buffers (SMP)
 	CLocale* locale = CLocale::GetInstance();	
 	//Set time(LC_TIME category) related information
 	TInt ret=KErrNone;

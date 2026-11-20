@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): fd table lookups, dup and release under iFidLock (SMP)
 * Description:
 *
 */
@@ -187,6 +187,8 @@ public:
 	TInt Attach(TInt aFid, CFileDescBase* aFile);
 	TInt Detach(TInt aFid, CFileDescBase*& aDetached);
 	TInt At(TInt aFid, CFileDescBase*& aFound) const;
+	// NeoSymbian: At() without iFidLock, for code that already holds it (the fd transfer to a child process)
+	TInt AtUnlocked(TInt aFid, CFileDescBase*& aFound) const;
 	TInt Reserve(TInt aFids[3]);
 	TInt Detach(TInt aFids[3]);
 
@@ -282,6 +284,7 @@ private:
 	// the real dup-er.
     TInt DupFd(TInt aFid1, TInt aFid2);
 	void Release(TInt aFid);
+	void ReleaseUnlocked(TInt aFid);
 
 	//Lock for protecting FIDs across threads
 	RFastLock iFidLock;

@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): fd table lookups, dup and release under iFidLock (SMP)
 // Description:
 // file descriptor transfer session - client interface
 // 
@@ -38,7 +38,7 @@ TInt RFileDesTransferSession::TransferPipesToServer()
 	CFileDescBase* fdesc = NULL;
 	for (TInt i = count-1; i >=3 ; --i)
 			{
-				if (ftable.At(i, fdesc) == KErrNone)
+				if (ftable.AtUnlocked(i, fdesc) == KErrNone)
 				{
 					TUint attr = fdesc->Attributes();
 					/* Named RPipes cannot be passed to another process by IPC
@@ -66,7 +66,7 @@ TInt RFileDesTransferSession::TransferFilesToServer()
 	TInt j;
 	for (int i = count-1; i >=3;  --i)
 		{
-			if (ftable.At(i, fdesc) == KErrNone)
+			if (ftable.AtUnlocked(i, fdesc) == KErrNone)
 			{
 			j=fdesc->Type();
 			if((j==CFileDescBase::EFileDesc)||(j==CFileDescBase::EFileTempDesc))

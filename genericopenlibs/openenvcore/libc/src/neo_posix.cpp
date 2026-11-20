@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <time.h>
 #include <e32def.h>
+#include <pthread.h>
 
 // = struct pollfd and the POLL* values of stdapis' poll.h (mw.appsupport), which libc's own headers lack
 struct pollfd { int fd; short events; short revents; };
@@ -76,19 +77,26 @@ EXPORT_C int poll(struct pollfd* fds, nfds_t nfds, int timeout)
 	return ready;
 }
 
-// shortcut: not atomic against another thread using the same fd's offset (P.I.P.S. has no positioned I/O in its
-// backend); move into the backend's file descriptors if a caller shares fds across threads.
+// One lock for every positioned call: the seek, the transfer and the seek back can't interleave with another
+// thread's pread/pwrite on the same fd (US1: 8 threads on one fd read each other's data).
+// shortcut: plain read/write/lseek on the same fd from another thread still see the moved offset (P.I.P.S. has no
+// positioned I/O in its backend); move into the backend's file descriptors (RFile::Read/Write at a position) if a
+// caller mixes them.
+static pthread_mutex_t PositionedLock = PTHREAD_MUTEX_INITIALIZER;
+
 static ssize_t Positioned(int fd, void* buf, size_t n, off_t off, int write)
 {
+	pthread_mutex_lock(&PositionedLock);
+	ssize_t k = -1;
 	off_t cur = lseek(fd, 0, SEEK_CUR);
-	if (cur < 0)
-		return -1;
-	if (lseek(fd, off, SEEK_SET) < 0)
-		return -1;
-	ssize_t k = write ? ::write(fd, buf, n) : ::read(fd, buf, n);
-	int e = errno;
-	lseek(fd, cur, SEEK_SET);
-	errno = e;
+	if (cur >= 0 && lseek(fd, off, SEEK_SET) >= 0)
+	{
+		k = write ? ::write(fd, buf, n) : ::read(fd, buf, n);
+		int e = errno;
+		lseek(fd, cur, SEEK_SET);
+		errno = e;
+	}
+	pthread_mutex_unlock(&PositionedLock);
 	return k;
 }
 

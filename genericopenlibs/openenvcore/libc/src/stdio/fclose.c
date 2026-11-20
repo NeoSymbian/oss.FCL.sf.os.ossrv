@@ -49,6 +49,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fclose.c,v 1.11 2002/03/22 21:53:04 obrie
 
 #ifdef __SYMBIAN32__
 #include <pthread.h>
+#include <e32atomics.h>
 #include "sysreent.h"
 #endif //__SYMBIAN32__
 	
@@ -83,13 +84,25 @@ fclose(FILE *fp)
 		FREELB(fp);
 	fp->_file = -1;
 	fp->_r = fp->_w = 0;	  /* Mess up if reaccessed. */
+#ifdef __SYMBIAN32__
+	/*
+	 * NeoSymbian (SMP): release the slot last. It used to be released (_flags = 0) before its mutex was destroyed,
+	 * so another thread's fopen could take the slot and lock the mutex this destroyed under it. The mutex is reset
+	 * to the static initializer, so the next owner creates a fresh one, and a barrier publishes it all before the
+	 * slot is free.
+	 */
+	fp->_extra->fmode = 'b';
+	FUNLOCKFILE(fp);
+	if (pthread_mutex_destroy(&(fp->_extra->fl_mutex)) == 0) {
+		pthread_mutex_t fresh = PTHREAD_MUTEX_INITIALIZER;
+		fp->_extra->fl_mutex = fresh;
+	}
+	__e32_memory_barrier();
+	fp->_flags = 0;		      /* Release this FILE for reuse. */
+#else
 	fp->_flags = 0;		      /* Release this FILE for reuse. */
 	fp->_extra->fmode = 'b';
 	FUNLOCKFILE(fp);
-	
-#ifdef __SYMBIAN32__
-	/* to BackendFree the memory for the mutex */
-	pthread_mutex_destroy(&(fp->_extra->fl_mutex));
 #endif //__SYMBIAN32__
 	
 	return (r);
