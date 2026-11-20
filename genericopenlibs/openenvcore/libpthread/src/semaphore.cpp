@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): mutex released on error
 // Description:
 // Name        : semaphore.cpp
 // Part of     : semaphore 
@@ -45,6 +45,7 @@ int _cancelable_mutex_wait(_sem_t* asem)
   asem->iMutex.Wait(); 
   if(asem->iState != _sem_t::EInitialized) 
   { 
+    asem->iMutex.Signal();	// NeoSymbian: don't keep the mutex
     errno = EINVAL; 
     return -1; 
   } 

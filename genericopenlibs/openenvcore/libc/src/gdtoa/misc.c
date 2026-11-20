@@ -37,6 +37,9 @@ THIS SOFTWARE.
 
 #include "gdtoaimp.h"
 #include <stdio.h>  //__isthreaded is defined here.
+#ifdef __SYMBIAN32__
+#include <e32atomics.h>	/* NeoSymbian: pow5mult's cache is published with release/acquire (SMP) */
+#endif
 
 
 #if (defined(__SYMBIAN32__) && (defined(__WINSCW__) || defined(__WINS__)))
@@ -412,13 +415,15 @@ pow5mult
 
 	if (!(k >>= 2))
 		return b;
-	if ((p5 = p5s) == 0) {
+	if ((p5 = (Bigint *)__e32_atomic_load_acq_ptr(&p5s)) == 0) {
 		/* first time */
 #ifdef MULTIPLE_THREADS
 		ACQUIRE_DTOA_LOCK(1);
 		if (!(p5 = p5s)) {
-			p5 = p5s = i2b(625);
+			/* NeoSymbian: complete the node, then publish it (other threads read it without the lock) */
+			p5 = i2b(625);
 			p5->next = 0;
+			__e32_atomic_store_rel_ptr(&p5s, p5);
 			}
 		FREE_DTOA_LOCK(1);
 #else
@@ -434,12 +439,13 @@ pow5mult
 			}
 		if (!(k >>= 1))
 			break;
-		if ((p51 = p5->next) == 0) {
+		if ((p51 = (Bigint *)__e32_atomic_load_acq_ptr(&p5->next)) == 0) {
 #ifdef MULTIPLE_THREADS
 			ACQUIRE_DTOA_LOCK(1);
 			if (!(p51 = p5->next)) {
-				p51 = p5->next = mult(p5,p5);
+				p51 = mult(p5,p5);
 				p51->next = 0;
+				__e32_atomic_store_rel_ptr(&p5->next, p51);
 				}
 			FREE_DTOA_LOCK(1);
 #else

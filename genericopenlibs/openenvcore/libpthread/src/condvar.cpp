@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): static initializer and timed wait made SMP-safe
 // Description:
 // Name        : condvar.cpp
 // Part of     : pthread
@@ -192,16 +192,12 @@ bool _staticCondInit(pthread_cond_t* cond)
     {
         return false;
     }
-    if(cond->iState == _EInitialized)
+    // NeoSymbian: acquire, pairs with pthread_cond_init's release (SMP)
+    if((int)__e32_atomic_load_acq32(&cond->iState) == _EInitialized)
     {
         return true;
     }
 
-
-    if(cond->iState != _ENeedsNormalInit)
-    {
-        return false;
-    }
     int retval=0;
 
     #ifndef NOUSE_INTERNALS
@@ -217,9 +213,13 @@ bool _staticCondInit(pthread_cond_t* cond)
     #endif
 
     //another thread might win race
-    if(cond->iState != _EInitialized)
+    if(cond->iState == _ENeedsNormalInit)
     {
         retval = pthread_cond_init(cond,NULL);
+    }
+    else if(cond->iState != _EInitialized)
+    {
+        retval = EINVAL;	// NeoSymbian: tested under the lock now, so a racing initialisation is not mistaken for this
     }
 
     #ifndef NOUSE_INTERNALS
@@ -272,9 +272,12 @@ int _internalCondWait(pthread_cond_t *cond, pthread_mutex_t *mutex,const struct 
     if(abstime)
     {
         retval = sem_timedwait(&newNode->iSemaphore,abstime);   
-        if(retval != 0)
+        if(retval != 0 && !_QueueRemove(&cond->iQueue,newNode))
         {
-            _QueueRemove(&cond->iQueue,newNode);
+            // NeoSymbian: a signal or broadcast took our node off the queue before we could, and posts (or has posted)
+            // its semaphore: take that post, so the node isn't freed under the signaller, and report the wakeup (SMP)
+            sem_wait(&newNode->iSemaphore);
+            retval = 0;
         }//timed_wait timedout
     }
     else

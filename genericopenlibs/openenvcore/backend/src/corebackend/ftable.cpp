@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): fd table lookups, dup and release under iFidLock (SMP)
 * Description:
 *
 */
@@ -135,11 +135,15 @@ void CFileTable::Release(TInt aFid)
 	{
 	//Lock the resource before using it and unlock later
 	iFidLock.Wait();
+	ReleaseUnlocked(aFid);
+	iFidLock.Signal();
+	}
 
+void CFileTable::ReleaseUnlocked(TInt aFid)
+	{
 	iFids[aFid]=0;
 	if (aFid<KMinFds || aFid<iFids.Count()-1)
 		{
-		iFidLock.Signal();
 		return;
 		}
 
@@ -156,7 +160,6 @@ void CFileTable::Release(TInt aFid)
 
 	// reset to the thread's default heap
 	User::SwitchHeap(oldHeap);
-	iFidLock.Signal();
 	}
 
 void CFileTable::Default(CFileDescBase* aRedirMedia, CFileDescBase* aStdErrMedia)
@@ -262,14 +265,30 @@ TInt CFileTable::Detach(int aFids[KPopen3Fds])
 
 TInt CFileTable::Detach(TInt aFid, CFileDescBase*& aDetached)
 	{
+	iFidLock.Wait();
 	if (aFid<0 || aFid>=iFids.Count())
+		{
+		iFidLock.Signal();
 		return KErrBadHandle;
+		}
 	aDetached=iFids[aFid];
-	Release(aFid);
+	ReleaseUnlocked(aFid);
+	iFidLock.Signal();
 	return KErrNone;
 	}
 
+// NeoSymbian: every lookup takes iFidLock: other threads open, close and dup at the same time (SMP), and iFids is a
+// CArrayPtrSeg, whose lookups even write its position cache
 TInt CFileTable::At(TInt aFid, CFileDescBase*& aFound) const
+	{
+	RFastLock& lock = const_cast<RFastLock&>(iFidLock);
+	lock.Wait();
+	TInt err = AtUnlocked(aFid, aFound);
+	lock.Signal();
+	return err;
+	}
+
+TInt CFileTable::AtUnlocked(TInt aFid, CFileDescBase*& aFound) const
 	{
 	if (aFid<0 || aFid>=iFids.Count())
 		return KErrBadHandle;
@@ -351,7 +370,9 @@ TInt CFileTable::Dup2(TInt aFid1, TInt aFid2, TBool aCloseFid2)
 		if (At(aFid2, fdesc) == KErrNone)
 			{
 			fdesc->Close();
+			iFidLock.Wait();
 			iFids[aFid2] = 0;
+			iFidLock.Signal();
 			}
 		}
 
@@ -368,9 +389,14 @@ TInt CFileTable::DupFd(TInt aFid1, TInt aFid2)
 	{
 	// Arguments have been validated in the calling methods
 	TInt err = KErrNone;
-	CFileDescBase* fdesc = iFids[aFid1];
-
+	// NeoSymbian: lookup, expansion and store all under iFidLock (another thread may close aFid1 or shrink the table)
 	iFidLock.Wait();
+	CFileDescBase* fdesc;
+	if (AtUnlocked(aFid1, fdesc) != KErrNone)
+		{
+		iFidLock.Signal();
+		return KErrBadHandle;
+		}
 	TInt count = iFids.Count();
 	for (; aFid2<count; aFid2++)
 		if (iFids[aFid2]==0)
@@ -379,17 +405,16 @@ TInt CFileTable::DupFd(TInt aFid1, TInt aFid2)
 			iFidLock.Signal();
 			return aFid2;
 			}
-	iFidLock.Signal();
 	//Expand the FTable
 	TRAP(err,ExpandFTableL(aFid2+1));
 	//Handle error case
 	if (KErrNone == err)
 		{
-		iFidLock.Wait();
 		iFids[aFid2] = fdesc->Dup();
 		iFidLock.Signal();
 		return aFid2;
 		}
+	iFidLock.Signal();
 	return err;
 	}
 
@@ -701,9 +726,11 @@ int CFileTable::fcntl (int aFid, int aCmd, long anArg, int& anErrno)
 
 TInt CFileTable::Asynch(int fid, CFileDescBase*& aFile)
 	{
-	TInt err=At(fid,aFile);
+	iFidLock.Wait();	// NeoSymbian: lookup and Dup() together, so a close on another thread can't come between
+	TInt err=AtUnlocked(fid,aFile);
 	if (!err)
 		aFile->Dup();
+	iFidLock.Signal();
 	return err;
 	}
 

@@ -9,7 +9,7 @@
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-// The NeoSymbian Authors (2026): CRandomDesc, /dev/urandom and /dev/random over the kernel's secure RNG.
+// The NeoSymbian Authors (2026): CRandomDesc, /dev/urandom and /dev/random over the kernel's secure RNG; Dup()'s count is atomic (SMP)
 // Description:
 // Abstraction representing a UNIX file descriptor
 // CFileDescBase maintains the simple semantics of
@@ -290,7 +290,7 @@ public:
 
 
 inline CFileDescBase* CFileDescBase::Dup () 
-	{ iDupCount += 1; return this; }
+	{ __e32_atomic_add_ord32(&iDupCount, 1); return this; }	// NeoSymbian: every read/write Dup()s, from any thread
 
 
 NONSHARABLE_CLASS(CRandomDesc) : public CFileDescBase

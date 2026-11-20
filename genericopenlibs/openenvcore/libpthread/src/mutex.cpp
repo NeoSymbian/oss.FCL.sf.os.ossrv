@@ -4,12 +4,12 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): static initializer made SMP-safe (acquire/release, state decided under the lock)
 // Description:
 // Name        : mutex.cpp
 // Part of     : pthread
@@ -121,7 +121,7 @@ int _mutexCreate (pthread_mutex_t * mutex,
     pMutex->iCount = 0;
     pMutex->iSemaphoreState = SEM_FREE;
     pMutex->iLockingThread = 0;
-    mutex->iState = _EInitialized;
+    __e32_atomic_store_rel32(&mutex->iState, _EInitialized);	// NeoSymbian: publishes iPtr and *iPtr (SMP)
     return 0;
 }
 
@@ -139,36 +139,11 @@ bool _InitOnce(pthread_mutex_t* mutex)
     pthread_mutexattr_t errorcheckattributes = 
                             PTHREAD_MUTEX_ATTRIBUTE_ERRORCHECK_INITIALIZER;
 
-    if(mutex->iState == _EInitialized)
+    // NeoSymbian: acquire, pairs with _mutexCreate's release. Everything else about the state is decided under the
+    // lock below: another thread may be half way through creating this mutex (SMP)
+    if((int)__e32_atomic_load_acq32(&mutex->iState) == _EInitialized)
     {
         return true;
-    }
-   
-    mutex->iReentry = 0xBABA;
-
-    pthread_mutexattr_t* attr;
-    switch(mutex->iState)
-    {
-        case _ENeedsNormalInit:
-        {
-            attr = &defaultattributes;
-            break;
-        }
-
-        case _ENeedsRecursiveInit:
-        {
-            attr = &recursiveattributes;
-            break;
-        }
-
-        case _ENeedsErrorCheckInit:
-        {
-            attr = &errorcheckattributes;
-            break;
-        }
-
-        default:
-            return false;
     }
 
 #ifndef NOUSE_INTERNALS
@@ -189,7 +164,27 @@ bool _InitOnce(pthread_mutex_t* mutex)
 #endif
     if(mutex->iState != _EInitialized)
     {
-        retval = _mutexCreate(mutex,attr);
+        pthread_mutexattr_t* attr = NULL;
+        switch(mutex->iState)
+        {
+            case _ENeedsNormalInit:
+                attr = &defaultattributes;
+                break;
+            case _ENeedsRecursiveInit:
+                attr = &recursiveattributes;
+                break;
+            case _ENeedsErrorCheckInit:
+                attr = &errorcheckattributes;
+                break;
+            default:
+                retval = EINVAL;
+                break;
+        }
+        if(attr)
+        {
+            mutex->iReentry = 0xBABA;
+            retval = _mutexCreate(mutex,attr);
+        }
     }
 #ifndef NOUSE_INTERNALS   
     _pthread_atomicMutexUnlock(tlsPtr);

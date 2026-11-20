@@ -168,8 +168,10 @@ static spinlock_t thread_lock = _SPINLOCK_INITIALIZER;
 #endif //__SYMBIAN32__
 
 #ifdef __SYMBIAN32__
-#define THREAD_LOCK()
-#define THREAD_UNLOCK()
+/* NeoSymbian: a real lock. With none, two threads could take the same FILE slot in __sfp() (SMP). */
+static pthread_mutex_t thread_lock = PTHREAD_MUTEX_INITIALIZER;
+#define THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&thread_lock)
+#define THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&thread_lock)
 #endif //__SYMBIAN32__
 
 

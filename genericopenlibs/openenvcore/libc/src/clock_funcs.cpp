@@ -10,7 +10,7 @@
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-* The NeoSymbian Authors (2026): CLOCK_REALTIME nanoseconds fixed; CLOCK_MONOTONIC from the generic timer.
+* The NeoSymbian Authors (2026): CLOCK_REALTIME nanoseconds fixed; CLOCK_MONOTONIC from the generic timer; ISB before the counter read
 * Description:  This is a project specific include file for building the 
 *                clock related functions as part of libc library.
 *
@@ -45,7 +45,9 @@ static TBool HaveGenericTimer()
 __attribute__((target("arm"))) static TUint64 CounterValue()
 {
 	TUint32 lo, hi;
-	asm volatile("mrrc p15, 1, %0, %1, c14" : "=r"(lo), "=r"(hi));
+	// ISB SY (0xf57ff06f: this TU assembles as ARMv5): keeps the read from running ahead of earlier code, so two reads
+	// on one thread never go backwards (NeoSymbian, as Linux does it)
+	asm volatile(".word 0xf57ff06f\n\tmrrc p15, 1, %0, %1, c14" : "=r"(lo), "=r"(hi) : : "memory");
 	return ((TUint64)hi << 32) | lo;
 }
 

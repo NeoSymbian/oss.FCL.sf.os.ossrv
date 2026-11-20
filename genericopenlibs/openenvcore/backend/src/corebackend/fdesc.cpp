@@ -10,7 +10,7 @@
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-* The NeoSymbian Authors (2026): /dev/urandom and /dev/random (CRandomDesc) over the kernel's secure RNG; F_GETFD/F_SETFD.
+* The NeoSymbian Authors (2026): /dev/urandom and /dev/random (CRandomDesc) over the kernel's secure RNG; F_GETFD/F_SETFD; Close()'s count is atomic (SMP)
 * Description:
 *
 */
@@ -563,7 +563,7 @@ EXPORT_C TInt CFileDescBase::Close()
 	{ 
 	TInt err = KErrNone;
 	//Decrement the dup count and mark this FD as invalid if dupcount is 0
-	if ( --iDupCount < 0 )
+	if ( (TInt)__e32_atomic_add_ord32(&iDupCount, (TUint32)-1) - 1 < 0 )	// NeoSymbian: atomic (SMP)
 		{
 		iFdAttrib |= KInvalidFd;
 		//delete this FD only if its not mmaped and being used
