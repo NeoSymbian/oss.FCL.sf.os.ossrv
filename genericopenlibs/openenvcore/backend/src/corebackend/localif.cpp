@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): local time from the kernel's UTC offset when there is no time zone server
 * Description:
 *
 */
@@ -98,6 +98,21 @@ TInt CLocalSystemInterface::OnDemandTZServerConnection()
 		iTzServerLock.Wait();
 		if (!iIsRTzConnected) 
 			{
+			// NeoSymbian: RTz::Connect panics (TzServer 1) when the time zone server isn't in the ROM;
+			// answer KErrNotFound instead (timefuncs.cpp then uses the kernel's UTC offset)
+			RFs fs;
+			TEntry tzserver;
+			err = fs.Connect();
+			if (err == KErrNone)
+				{
+				err = fs.Entry(_L("z:\\sys\\bin\\tzserver.exe"), tzserver);
+				fs.Close();
+				}
+			if (err != KErrNone)
+				{
+				iTzServerLock.Signal();
+				return KErrNotFound;
+				}
 			err = iTzServer.Connect();
 			if ( err == KErrNone ) 
 				{

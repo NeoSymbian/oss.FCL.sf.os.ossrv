@@ -5,12 +5,12 @@
 * under the terms of "Eclipse Public License v1.0"
 * which accompanies this distribution, and is available
 * at the URL "http://www.eclipse.org/legal/epl-v10.html".
-*
+* SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 * Initial Contributors:
 * Nokia Corporation - initial contribution.
 *
 * Contributors:
-*
+* The NeoSymbian Authors (2026): local time from the kernel's UTC offset when there is no time zone server
 * Description:  This is a project specific include file for building the 
 *                clock related functions as part of libc library.
 *
@@ -191,6 +191,23 @@ void UpdateDstAndTznameL(RTz &aServer,CTzId& aId,struct tm* aTmStruct, TTime aTi
     aTmStruct->tm_zone = "WILDABBR";
     }  
 
+// NeoSymbian: with no time zone server in the ROM (RTz::Connect panics TzServer 1; TZServer() then answers
+// KErrNotFound), local time is UTC plus the kernel's UTC offset (set from the clock's source), with no DST.
+static void UtcOffsetOnly(TTime aTime, TInt aOffset, struct tm* const aTm)
+    {
+    TDateTime tdt = aTime.DateTime();
+    aTm->tm_sec = tdt.Second();
+    aTm->tm_min = tdt.Minute();
+    aTm->tm_hour = tdt.Hour();
+    aTm->tm_mday = tdt.Day() + 1;
+    aTm->tm_mon = tdt.Month();
+    aTm->tm_year = tdt.Year() - 1900;
+    aTm->tm_wday = (aTime.DayNoInWeek()+1)%7;
+    aTm->tm_yday = aTime.DayNoInYear()-1;
+    aTm->tm_gmtoff = aOffset;
+    aTm->tm_isdst = 0;
+    }
+
 void ConvertUtcToLocalTimeL(const time_t* aUTCTime, struct tm* const atmStruct)
     {
     if(!aUTCTime)
@@ -223,6 +240,11 @@ void ConvertUtcToLocalTimeL(const time_t* aUTCTime, struct tm* const atmStruct)
     //enable the cache
 	TInt status = KErrNone;
 	RTz& rtzServer = Backend()->TZServer(status);
+	if(status == KErrNotFound)
+		{
+		UtcOffsetOnly(time + UtcOffset, UtcOffset.Int(), atmStruct);
+		return;
+		}
 	if(status != KErrNone)
 		User::Leave(status);
 
@@ -287,6 +309,13 @@ void ConvertLocalToUtcTimeL(time_t* aUTCTime, struct tm* const aTmStruct)
 
 	TInt status = KErrNone;
 	RTz& rtzServer = Backend()->TZServer(status);
+	if(status == KErrNotFound)
+		{
+		UtcOffsetOnly(time, UtcOffset.Int(), aTmStruct);
+		time -= UtcOffset;
+		*aUTCTime = (TInt)((time.Int64() - KEpochTime) / 1000000);
+		return;
+		}
 	if(status != KErrNone)
 		User::Leave(status);
 
