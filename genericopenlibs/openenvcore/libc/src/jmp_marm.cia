@@ -4,16 +4,17 @@
 // under the terms of "Eclipse Public License v1.0"
 // which accompanies this distribution, and is available
 // at the URL "http://www.eclipse.org/legal/epl-v10.html".
-//
+// SPDX-License-Identifier: EPL-2.0 (changed by the NeoSymbian Authors)
 // Initial Contributors:
 // Nokia Corporation - initial contribution.
 //
 // Contributors:
-//
+// The NeoSymbian Authors (2026): setjmp itself is defined here, so <setjmp.h>'s d8-d15 clobber macro is undefined (US3)
 // Description:
 //
 
 #include <setjmp.h>
+#undef setjmp
 
 //Suppressing RVCT compiler warning:
 //    "Warning:  #830-D: function "RHeap::operator new" has no corresponding operator delete (to be called if an exception
