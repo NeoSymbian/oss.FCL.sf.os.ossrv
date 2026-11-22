@@ -68,6 +68,15 @@ void	siglongjmp(sigjmp_buf, int) __dead2;
 #define _longjmp longjmp
 #endif
 
+/* NeoSymbian (2026, docs user-side-smp.md US3): code built with VFP (ARMv8 AArch32, softfp) keeps its callers'
+ * values in the callee-saved d8-d15, which this jmp_buf has no room for, so a longjmp would return with them
+ * clobbered. Telling GCC that setjmp's return clobbers d8-d15 makes the function calling it save them in its
+ * prologue and restore them when it returns (frozen jmp_buf and exports, no new code). */
+#if defined(__GNUC__) && defined(__ARM_FP) && !defined(__ASSEMBLER__)
+#define setjmp(__neo_b) __extension__ ({ int __neo_r = (setjmp)(__neo_b); \
+	__asm__ __volatile__("" ::: "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15"); __neo_r; })
+#endif
+
 __END_DECLS
 
 //---
