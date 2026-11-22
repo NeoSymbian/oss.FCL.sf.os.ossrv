@@ -863,10 +863,19 @@ public:
 
 template<class T> inline void _STLP_no_unused_variable_warning(const T &) {}
 
+#   ifdef NEO_TRAP_FP
+/* NeoSymbian (2026, docs user-side-smp.md US3): code built with VFP keeps d8-d15 across a leave through
+ * NeoTrapFp, as the TRAP macros (build toolchain/overlay/e32cmn.h) */
+#   define _STLP_TRY TInt _STL_TrapExitCode; { TNeoTrapFp _STL_Trap;	\
+  if (NeoTrapFp(&_STL_Trap.iTrap, _STL_TrapExitCode)==0) { \
+    _TStUntrap _STL_Untrap;	\
+    _STLP_no_unused_variable_warning( _STL_Untrap );
+#   else
 #   define _STLP_TRY TInt _STL_TrapExitCode; { TTrap _STL_Trap;	\
   if (_STL_Trap.Trap(_STL_TrapExitCode)==0) { \
     _TStUntrap _STL_Untrap;	\
     _STLP_no_unused_variable_warning( _STL_Untrap );
+#   endif
 
 #   define _STLP_CATCH_ALL \
    } } if (_STL_TrapExitCode)
